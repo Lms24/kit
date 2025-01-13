@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { rollup } from 'rollup';
 import { nodeResolve } from '@rollup/plugin-node-resolve';
@@ -79,6 +79,8 @@ export default function (opts = {}) {
 				chunkFileNames: 'chunks/[name]-[hash].js'
 			});
 
+			const hooksFile = readdirSync(`${out}/server/chunks`).find((file) => file.startsWith('hooks.server-') && file.endsWith('.js'));
+
 			builder.copy(files, out, {
 				replace: {
 					ENV: './env.js',
@@ -86,7 +88,8 @@ export default function (opts = {}) {
 					MANIFEST: './server/manifest.js',
 					SERVER: './server/index.js',
 					SHIMS: './shims.js',
-					ENV_PREFIX: JSON.stringify(envPrefix)
+					ENV_PREFIX: JSON.stringify(envPrefix),
+					SERVER_HOOKS: hooksFile ? `./server/chunks/${hooksFile}` : 'null',
 				}
 			});
 		},

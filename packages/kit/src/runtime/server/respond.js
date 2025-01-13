@@ -33,6 +33,7 @@ import { INVALIDATED_PARAM, TRAILING_SLASH_PARAM } from '../shared.js';
 import { get_public_env } from './env_module.js';
 import { load_page_nodes } from './page/load_page_nodes.js';
 import { get_page_config } from '../../utils/route_config.js';
+import { startAndEndSpan } from '../../utils/telemetry.js';
 
 /* global __SVELTEKIT_ADAPTER_NAME__ */
 
@@ -421,18 +422,20 @@ export async function respond(request, options, manifest, state) {
 			}
 
 			if (options.hash_routing || state.prerendering?.fallback) {
-				return await render_response({
-					event,
-					options,
-					manifest,
-					state,
-					page_config: { ssr: false, csr: true },
-					status: 200,
-					error: null,
-					branch: [],
-					fetched: [],
-					resolve_opts
-				});
+				return await startAndEndSpan('sveltekit - render_response', {}, () =>
+					render_response({
+						event,
+						options,
+						manifest,
+						state,
+						page_config: { ssr: false, csr: true },
+						status: 200,
+						error: null,
+						branch: [],
+						fetched: [],
+						resolve_opts
+					})
+				);
 			}
 
 			if (route) {
@@ -455,7 +458,10 @@ export async function respond(request, options, manifest, state) {
 					response = await render_endpoint(event, await route.endpoint(), state);
 				} else if (route.page) {
 					if (page_methods.has(method)) {
-						response = await render_page(event, route.page, options, manifest, state, resolve_opts);
+						response = await startAndEndSpan('sveltekit - render_page', {}, async () => {
+							// @ts-ignore
+							return render_page(event, route.page, options, manifest, state, resolve_opts);
+						});
 					} else {
 						const allowed_methods = new Set(allowed_page_methods);
 						const node = await manifest._.nodes[route.page.leaf]();

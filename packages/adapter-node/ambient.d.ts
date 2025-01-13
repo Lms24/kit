@@ -18,6 +18,11 @@ declare module 'SERVER' {
 	export { Server } from '@sveltejs/kit';
 }
 
+declare module 'SERVER_HOOKS' {
+	import type { Instrument } from '@sveltejs/kit';
+	export const instrument: Instrument;
+}
+
 declare namespace App {
 	export interface Platform {
 		/**
