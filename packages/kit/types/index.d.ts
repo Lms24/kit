@@ -836,6 +836,13 @@ declare module '@sveltejs/kit' {
 	}
 
 	/**
+	 * Server-side instrumentation function that's evaluated before the server application
+	 * is imported to guarantee instrumentation of builtin and user-imported modules.
+	 */
+	export type Instrument = () => void;
+
+
+	/**
 	 * The generic form of `PageLoad` and `LayoutLoad`. You should import those from `./$types` (see [generated types](https://svelte.dev/docs/kit/types#Generated-types))
 	 * rather than using `Load` directly.
 	 */

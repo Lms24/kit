@@ -16,6 +16,7 @@ import { respond_with_error } from './respond_with_error.js';
 import { get_data_json } from '../data/index.js';
 import { DEV } from 'esm-env';
 import { PageNodes } from '../../../utils/page_nodes.js';
+import { startAndEndSpan } from '../../../utils/telemetry.js';
 
 /**
  * The maximum request depth permitted before assuming we're stuck in an infinite loop
@@ -154,20 +155,25 @@ export async function render_page(event, page, options, manifest, state, nodes, 
 						throw action_result.error;
 					}
 
-					return await load_server_data({
-						event,
-						state,
-						node,
-						parent: async () => {
-							/** @type {Record<string, any>} */
-							const data = {};
-							for (let j = 0; j < i; j += 1) {
-								const parent = await server_promises[j];
-								if (parent) Object.assign(data, parent.data);
-							}
-							return data;
-						}
-					});
+					return await startAndEndSpan(
+						`sveltekit - load_server_data ${node === leaf_node ? 'page' : 'layout'}`,
+						{},
+						() =>
+							load_server_data({
+								event,
+								state,
+								node,
+								parent: async () => {
+									/** @type {Record<string, any>} */
+									const data = {};
+									for (let j = 0; j < i; j += 1) {
+										const parent = await server_promises[j];
+										if (parent) Object.assign(data, parent.data);
+									}
+									return data;
+								}
+							})
+					);
 				} catch (e) {
 					load_error = /** @type {Error} */ (e);
 					throw load_error;
@@ -180,22 +186,27 @@ export async function render_page(event, page, options, manifest, state, nodes, 
 			if (load_error) throw load_error;
 			return Promise.resolve().then(async () => {
 				try {
-					return await load_data({
-						event,
-						fetched,
-						node,
-						parent: async () => {
-							const data = {};
-							for (let j = 0; j < i; j += 1) {
-								Object.assign(data, await load_promises[j]);
-							}
-							return data;
-						},
-						resolve_opts,
-						server_data_promise: server_promises[i],
-						state,
-						csr
-					});
+					return await startAndEndSpan(
+						`sveltekit - load_data ${i === nodes.length - 1 ? 'page' : 'layout'}`,
+						{},
+						() =>
+							load_data({
+								event,
+								fetched,
+								node,
+								parent: async () => {
+									const data = {};
+									for (let j = 0; j < i; j += 1) {
+										Object.assign(data, await load_promises[j]);
+									}
+									return data;
+								},
+								resolve_opts,
+								server_data_promise: server_promises[i],
+								state,
+								csr
+							})
+					);
 				} catch (e) {
 					load_error = /** @type {Error} */ (e);
 					throw load_error;
@@ -249,25 +260,27 @@ export async function render_page(event, page, options, manifest, state, nodes, 
 							const layouts = compact(branch.slice(0, j + 1));
 							const nodes = new PageNodes(layouts.map((layout) => layout.node));
 
-							return await render_response({
-								event,
-								options,
-								manifest,
-								state,
-								resolve_opts,
-								page_config: {
-									ssr: nodes.ssr(),
-									csr: nodes.csr()
-								},
-								status,
-								error,
-								branch: layouts.concat({
-									node,
-									data: null,
-									server_data: null
-								}),
-								fetched
-							});
+							return await startAndEndSpan('sveltekit - render_response', {}, () =>
+								render_response({
+									event,
+									options,
+									manifest,
+									state,
+									resolve_opts,
+									page_config: {
+										ssr: nodes.ssr(),
+										csr: nodes.csr()
+									},
+									status,
+									error,
+									branch: layouts.concat({
+										node,
+										data: null,
+										server_data: null
+									}),
+									fetched
+								})
+							);
 						}
 					}
 
@@ -302,22 +315,24 @@ export async function render_page(event, page, options, manifest, state, nodes, 
 			});
 		}
 
-		return await render_response({
-			event,
-			options,
-			manifest,
-			state,
-			resolve_opts,
-			page_config: {
-				csr,
-				ssr
-			},
-			status,
-			error: null,
-			branch: ssr === false ? [] : compact(branch),
-			action_result,
-			fetched
-		});
+		return await startAndEndSpan('sveltekit - render_response', {}, () =>
+			render_response({
+				event,
+				options,
+				manifest,
+				state,
+				resolve_opts,
+				page_config: {
+					csr,
+					ssr
+				},
+				status,
+				error: null,
+				branch: ssr === false ? [] : compact(branch),
+				action_result,
+				fetched
+			})
+		);
 	} catch (e) {
 		// if we end up here, it means the data loaded successfully
 		// but the page failed to render, or that a prerendering error occurred
