@@ -3,7 +3,6 @@ import { disable_search, make_trackable } from '../../../utils/url.js';
 import { validate_depends } from '../../shared.js';
 import { b64_encode } from '../../utils.js';
 import { with_event } from '../../app/server/event.js';
-import { startAndEndSpan } from '../../../utils/telemetry.js';
 
 /**
  * Calls the user's server `load` function.
@@ -201,19 +200,17 @@ export async function load_data({
 		return server_data_node?.data ?? null;
 	}
 
-	const result = await startAndEndSpan(`universal load ${event.route.id}`, {}, () =>
-		node.universal?.load?.call(null, {
-			url: event.url,
-			params: event.params,
-			data: server_data_node?.data ?? null,
-			route: event.route,
-			fetch: create_universal_fetch(event, state, fetched, csr, resolve_opts),
-			setHeaders: event.setHeaders,
-			depends: () => {},
-			parent,
-			untrack: (fn) => fn()
-		})
-	);
+	const result = await node.universal?.load?.call(null, {
+		url: event.url,
+		params: event.params,
+		data: server_data_node?.data ?? null,
+		route: event.route,
+		fetch: create_universal_fetch(event, state, fetched, csr, resolve_opts),
+		setHeaders: event.setHeaders,
+		depends: () => {},
+		parent,
+		untrack: (fn) => fn()
+	});
 
 	if (__SVELTEKIT_DEV__) {
 		validate_load_response(result, node.universal_id);
