@@ -34,6 +34,8 @@ import {
 	strip_resolution_suffix
 } from '../pathname.js';
 import { with_event } from '../app/server/event.js';
+import { startAndEndSpan } from '../../../utils/telemetry.js';
+
 
 /* global __SVELTEKIT_ADAPTER_NAME__ */
 /* global __SVELTEKIT_DEV__ */
@@ -460,18 +462,20 @@ export async function respond(request, options, manifest, state) {
 			}
 
 			if (options.hash_routing || state.prerendering?.fallback) {
-				return await render_response({
-					event,
-					options,
-					manifest,
-					state,
-					page_config: { ssr: false, csr: true },
-					status: 200,
-					error: null,
-					branch: [],
-					fetched: [],
-					resolve_opts
-				});
+				return await startAndEndSpan('sveltekit - render_response', {}, () =>
+					render_response({
+						event,
+						options,
+						manifest,
+						state,
+						page_config: { ssr: false, csr: true },
+						status: 200,
+						error: null,
+						branch: [],
+						fetched: [],
+						resolve_opts
+					})
+				);
 			}
 
 			if (route) {
